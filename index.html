@@ -218,6 +218,14 @@
         let GAME_HEIGHT = window.innerHeight;
         let scale = 1; 
 
+        // --- CẬP NHẬT: THÊM ÂM THANH ---
+        const flapSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/wing.mp3');
+        const pointSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/point.mp3');
+        // Âm thanh khi chết và hiện bảng điểm
+        const hitSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/hit.mp3'); // Mới thêm
+        const dieSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/die.mp3');
+        const swooshSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/swooshing.mp3');
+
         const bgDayImg = new Image();
         bgDayImg.src = 'https://i.ibb.co/KpL6Fswd/background-day.png';
         const bgNightImg = new Image();
@@ -339,9 +347,12 @@
                 } else if (gameState === 'PLAYING' || gameState === 'OVER') {
                     this.velocity += this.gravity;
                     this.y += this.velocity;
+                    
+                    // Va chạm đất
                     if (this.y + this.radius >= GAME_HEIGHT - ground.height) {
                         this.y = GAME_HEIGHT - ground.height - this.radius;
-                        if(gameState === 'PLAYING') gameOver();
+                        // CẬP NHẬT: Gọi gameOver với tham số false (không phải chạm ống -> không phát die.mp3)
+                        if(gameState === 'PLAYING') gameOver(false);
                     }
                     if(this.y - this.radius <= 0) {
                         this.y = this.radius;
@@ -349,7 +360,12 @@
                     }
                 }
             },
-            flap: function() { this.velocity = -this.jump; }
+            // CẬP NHẬT: Phát âm thanh khi vỗ cánh
+            flap: function() { 
+                this.velocity = -this.jump; 
+                flapSound.currentTime = 0;
+                flapSound.play().catch(e => console.log("Audio play blocked", e));
+            }
         };
 
         const pipes = {
@@ -391,12 +407,17 @@
                     let hitX = 5 * scale;
                     let hitY = 5 * scale;
                     if(bird.x + bird.radius - hitX > p.x && bird.x - bird.radius + hitX < p.x + this.width) {
-                        if(bird.y - bird.radius + hitY < p.y || bird.y + bird.radius - hitY > p.y + this.gap) gameOver();
+                        // CẬP NHẬT: Gọi gameOver với tham số true (chạm ống -> phát die.mp3)
+                        if(bird.y - bird.radius + hitY < p.y || bird.y + bird.radius - hitY > p.y + this.gap) gameOver(true);
                     }
                     if(p.x + this.width < bird.x && !p.passed) {
                         score++;
                         document.getElementById('score').innerText = score;
                         p.passed = true;
+
+                        // CẬP NHẬT: Phát âm thanh khi ghi điểm
+                        pointSound.currentTime = 0;
+                        pointSound.play().catch(e => console.log("Audio play blocked", e));
                     }
                     if(p.x + this.width <= -this.width) { this.position.shift(); i--; }
                 }
@@ -478,20 +499,65 @@
             bird.flap(); 
         }
 
-        function gameOver() {
+        // HÀM ĐẾM SỐ (ANIMATION)
+        function animateScore(element, target, duration, callback) {
+            let start = 0;
+            let end = target;
+            let startTime = null;
+
+            if (target === 0) {
+                element.innerText = 0;
+                if (callback) callback();
+                return;
+            }
+
+            function step(timestamp) {
+                if (!startTime) startTime = timestamp;
+                let progress = Math.min((timestamp - startTime) / duration, 1);
+                element.innerText = Math.floor(progress * (end - start) + start);
+
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                } else {
+                    element.innerText = end; // Đảm bảo số cuối cùng chính xác
+                    if (callback) callback();
+                }
+            }
+            
+            window.requestAnimationFrame(step);
+        }
+
+        // CẬP NHẬT: Thêm tham số hitByPipe để kiểm soát âm thanh die.mp3
+        function gameOver(hitByPipe) {
             gameState = 'OVER';
             const container = document.getElementById('game-container');
             container.classList.remove('shake');
             void container.offsetWidth;
             container.classList.add('shake');
 
+            // 1. Luôn phát âm thanh Hit (va chạm) trước dù chạm đất hay ống
+            hitSound.currentTime = 0;
+            hitSound.play().catch(e => console.log("Audio play blocked", e));
+
+            // 2. Chỉ phát âm thanh Die (rơi) nếu chạm ống (hitByPipe = true)
+            if (hitByPipe) {
+                setTimeout(() => {
+                    dieSound.currentTime = 0;
+                    dieSound.play().catch(e => console.log("Audio play blocked", e));
+                }, 500); 
+            }
+
             if(score > highScore) {
                 highScore = score;
                 localStorage.setItem('flappy_highscore', highScore);
             }
 
+            // Ẩn điểm số chính
             document.getElementById('score').classList.add('hidden');
-            document.getElementById('board-score').innerText = score;
+            
+            // Set giá trị ban đầu cho bảng điểm là 0 để chuẩn bị đếm
+            const boardScoreEl = document.getElementById('board-score');
+            boardScoreEl.innerText = 0; 
             document.getElementById('board-best').innerText = highScore;
             
             let medal = document.getElementById('board-medal');
@@ -510,21 +576,29 @@
             btnRestart.classList.remove('visible');
             goScreen.classList.remove('hidden');
 
-            // CẬP NHẬT TIMING:
-            // T=100ms: Hiện chữ Game Over
+            // 1. Hiện chữ Game Over
             setTimeout(() => { 
                 goTitle.classList.add('visible'); 
             }, 100);
 
-            // T=1000ms (1 giây): Hiện Bảng điểm (nhanh hơn theo yêu cầu)
+            // 2. Hiện Bảng điểm và bắt đầu đếm số (750ms sau)
             setTimeout(() => { 
                 goBoard.classList.add('visible'); 
-            }, 1000);
+                
+                // CẬP NHẬT: Phát âm thanh Swoosh khi bảng điểm hiện ra
+                swooshSound.currentTime = 0;
+                swooshSound.play().catch(e => console.log("Audio play blocked", e));
+                
+                // Tính toán thời gian đếm dựa trên điểm số (tối đa 1 giây)
+                let duration = Math.min(score * 50, 1000); 
+                if (duration < 500) duration = 500; // Tối thiểu 0.5s cho đẹp
 
-            // T=1400ms: Hiện nút Restart ngay sau đó
-            setTimeout(() => { 
-                btnRestart.classList.add('visible'); 
-            }, 1400);
+                animateScore(boardScoreEl, score, duration, () => {
+                    // 3. Hiện nút Restart SAU KHI đếm xong
+                    btnRestart.classList.add('visible');
+                });
+
+            }, 750);
         }
 
         function resetGame() {
