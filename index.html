@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Flappy Bird Responsive</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        /* CẬP NHẬT: Đặt tên font family là 04b_19 cho đúng chuẩn */
+        @font-face {
+            font-family: '04b_19';
+            src: url('https://raw.githubusercontent.com/nnam0308/flappybird/refs/heads/main/flappy-font.ttf') format('truetype');
+        }
 
         body {
             margin: 0;
@@ -17,7 +21,8 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            font-family: 'VT323', monospace;
+            /* CẬP NHẬT: Sử dụng tên font 04b_19 */
+            font-family: '04b_19', monospace;
             user-select: none;
         }
 
@@ -58,6 +63,8 @@
             color: white;
             z-index: 10;
             font-weight: bold;
+            /* Text stroke để số nổi bật hơn */
+            -webkit-text-stroke: 2px #000;
         }
 
         #start-screen {
@@ -113,7 +120,8 @@
             position: absolute;
             right: 12%;
             color: #fff;
-            font-family: 'VT323', monospace;
+            /* CẬP NHẬT: Sử dụng tên font 04b_19 */
+            font-family: '04b_19', monospace;
             /* Co giãn font chữ theo bảng điểm */
             font-size: clamp(22px, 2.1vw, 40px); 
             text-align: right;
@@ -143,7 +151,8 @@
             /* Padding và font cũng co giãn nhẹ */
             padding: 1vh 3vw;
             font-size: clamp(18px, 1.5vw, 28px);
-            font-family: 'VT323', monospace;
+            /* CẬP NHẬT: Sử dụng tên font 04b_19 */
+            font-family: '04b_19', monospace;
             cursor: pointer;
             text-transform: uppercase;
             box-shadow: 2px 2px 0 #000;
@@ -176,7 +185,7 @@
             font-weight: bold;
             z-index: 20;
             text-shadow: 2px 2px 0 #000;
-            font-family: monospace;
+            /* Font sẽ kế thừa từ body (04b_19) */
         }
     </style>
 </head>
@@ -222,7 +231,7 @@
         const flapSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/wing.mp3');
         const pointSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/point.mp3');
         // Âm thanh khi chết và hiện bảng điểm
-        const hitSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/hit.mp3'); // Mới thêm
+        const hitSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/hit.mp3'); 
         const dieSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/die.mp3');
         const swooshSound = new Audio('https://github.com/nnam0308/flappybird/raw/refs/heads/main/audio/swooshing.mp3');
 
@@ -347,11 +356,8 @@
                 } else if (gameState === 'PLAYING' || gameState === 'OVER') {
                     this.velocity += this.gravity;
                     this.y += this.velocity;
-                    
-                    // Va chạm đất
                     if (this.y + this.radius >= GAME_HEIGHT - ground.height) {
                         this.y = GAME_HEIGHT - ground.height - this.radius;
-                        // CẬP NHẬT: Gọi gameOver với tham số false (không phải chạm ống -> không phát die.mp3)
                         if(gameState === 'PLAYING') gameOver(false);
                     }
                     if(this.y - this.radius <= 0) {
@@ -540,6 +546,7 @@
             hitSound.play().catch(e => console.log("Audio play blocked", e));
 
             // 2. Chỉ phát âm thanh Die (rơi) nếu chạm ống (hitByPipe = true)
+            // Thời gian trễ giảm xuống 500ms
             if (hitByPipe) {
                 setTimeout(() => {
                     dieSound.currentTime = 0;
